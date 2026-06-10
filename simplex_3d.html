@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Sum Simplex — Δ₃</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  background:#111d2a;
+  color:#c8d8e4;
+  height:100vh;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+
+/* ── header ─────────────────────────────────────────── */
+#hdr{
+  flex-shrink:0;
+  padding:10px 18px;
+  background:#0c1520;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  display:flex;
+  align-items:baseline;
+  gap:14px;
+}
+#hdr h1{
+  font-size:14px;
+  font-weight:600;
+  color:#a8c8e0;
+  letter-spacing:.2px;
+}
+#hdr p{
+  font-size:11px;
+  color:#4a6070;
+}
+
+/* ── main layout ─────────────────────────────────────── */
+#main{
+  flex:1;
+  display:flex;
+  overflow:hidden;
+}
+
+/* ── canvas wrapper ──────────────────────────────────── */
+#cvs{
+  flex:1;
+  position:relative;
+  cursor:grab;
+  background:#111d2a;
+  overflow:hidden;
+}
+#cvs:active{cursor:grabbing}
+#cvs canvas{display:block}
+
+/* ── floating vertex / axis labels ──────────────────── */
+.vlbl{
+  position:absolute;
+  display:none;
+  pointer-events:none;
+  font-size:11px;
+  font-weight:600;
+  white-space:nowrap;
+  padding:2px 6px;
+  border-radius:4px;
+  background:rgba(8,18,28,.88);
+  border:1px solid rgba(255,255,255,.12);
+  line-height:1.4;
+}
+.albl{
+  position:absolute;
+  display:none;
+  pointer-events:none;
+  font-size:14px;
+  font-weight:700;
+  text-shadow:0 1px 4px rgba(0,0,0,.9);
+}
+
+/* ── side panel ──────────────────────────────────────── */
+#panel{
+  width:228px;
+  flex-shrink:0;
+  background:#0c1520;
+  border-left:1px solid rgba(255,255,255,.07);
+  display:flex;
+  flex-direction:column;
+  overflow-y:auto;
+}
+
+.sec{
+  padding:13px 15px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.sec-hd{
+  font-size:9.5px;
+  font-weight:600;
+  letter-spacing:.7px;
+  text-transform:uppercase;
+  color:#3d5a6a;
+  margin-bottom:9px;
+}
+
+/* stat rows */
+.row{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  margin-bottom:5px;
+  font-size:12px;
+}
+.lbl{color:#5a7888}
+.val{
+  font-family:'Menlo','Consolas',monospace;
+  font-size:11px;
+  font-weight:600;
+  color:#a0c0d0;
+}
+.val-red{color:#d66060}
+.val-grn{color:#5ec87a}
+
+/* slider */
+input[type=range]{
+  width:100%;
+  margin:5px 0 10px;
+  -webkit-appearance:none;
+  appearance:none;
+  height:4px;
+  border-radius:2px;
+  background:rgba(255,255,255,.10);
+  outline:none;
+  cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:16px;height:16px;
+  border-radius:50%;
+  background:#e05050;
+  cursor:pointer;
+  border:2px solid #111d2a;
+}
+input[type=range]::-moz-range-thumb{
+  width:16px;height:16px;
+  border-radius:50%;
+  background:#e05050;
+  cursor:pointer;
+  border:2px solid #111d2a;
+}
+
+/* buttons */
+.btns{display:flex;gap:7px;margin-top:8px}
+.btn{
+  flex:1;
+  font-size:11px;
+  font-weight:600;
+  padding:5px 0;
+  border-radius:5px;
+  cursor:pointer;
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.04);
+  color:#7090a0;
+  transition:all .15s;
+}
+.btn:hover{background:rgba(255,255,255,.09)}
+.btn.on{background:rgba(41,128,185,.18);border-color:rgba(41,128,185,.45);color:#6eb8e0}
+
+/* progress bar */
+.bar{
+  height:7px;
+  border-radius:4px;
+  background:rgba(255,255,255,.07);
+  overflow:hidden;
+  margin:5px 0 6px;
+}
+.fill{
+  height:100%;
+  border-radius:4px;
+  background:#d65454;
+  transition:width .08s;
+}
+
+/* formula box */
+.fml{
+  background:rgba(0,0,0,.30);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:6px;
+  padding:10px 12px;
+  font-family:'Menlo','Consolas',monospace;
+  font-size:11px;
+  color:#6888a0;
+  line-height:2.0;
+  margin-top:2px;
+}
+.fml .r{color:#d87070}
+.fml .g{color:#5ec87a;font-weight:600}
+
+/* legend */
+.leg{display:flex;align-items:center;gap:8px;font-size:11px;color:#5a7888;margin-bottom:5px}
+.dot{width:18px;height:9px;border-radius:2px;flex-shrink:0}
+
+/* responsive: stack on narrow screens */
+@media(max-width:600px){
+  #main{flex-direction:column}
+  #panel{width:100%;height:200px;border-left:none;border-top:1px solid rgba(255,255,255,.07)}
+}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <h1>3D Sum Simplex &nbsp; Δ₃ = {(x₁,x₂,x₃) : x₁+x₂+x₃ ≤ 1,&thinsp; xᵢ ≥ 0}</h1>
+  <p>Drag to rotate &middot; Scroll to zoom &middot; Volume = 1/3! = 1/6</p>
+</div>
+
+<div id="main">
+
+  <!-- ── canvas ── -->
+  <div id="cvs">
+    <!-- vertex labels -->
+    <div class="vlbl" id="lO" style="color:#90b0c8">O = (0,0,0)</div>
+    <div class="vlbl" id="lA" style="color:#d87070">A = (1,0,0)</div>
+    <div class="vlbl" id="lB" style="color:#70a8e0">B = (0,1,0)</div>
+    <div class="vlbl" id="lC" style="color:#70d890">C = (0,0,1)</div>
+    <!-- axis labels -->
+    <div class="albl" id="ax1" style="color:#d87070">x₁</div>
+    <div class="albl" id="ax2" style="color:#70a8e0">x₂</div>
+    <div class="albl" id="ax3" style="color:#70d890">x₃</div>
+  </div>
+
+  <!-- ── panel ── -->
+  <div id="panel">
+
+    <div class="sec">
+      <div class="sec-hd">Cavalieri slice</div>
+      <div class="row">
+        <span class="lbl">Slice height &thinsp; x₃ = t</span>
+        <span class="val val-red" id="tval">0.350</span>
+      </div>
+      <input type="range" id="tsl" min="0" max="0.998" step="0.004" value="0.35">
+      <div class="btns">
+        <button class="btn on" id="bStack">&#9632; Stack</button>
+        <button class="btn on" id="bSpin">&#9654; Spin</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hd">Cross-section at t</div>
+      <div class="row"><span class="lbl">Side &thinsp; (1 – t)</span><span class="val" id="side">0.6500</span></div>
+      <div class="row"><span class="lbl">Area &thinsp; (1–t)² / 2</span><span class="val" id="area">0.2113</span></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hd">Volume &thinsp; ∫₀ᵗ A(s) ds</div>
+      <div class="row"><span class="lbl">Below t</span><span class="val" id="volb">0.0607</span></div>
+      <div class="bar"><div class="fill" id="vbar" style="width:36%"></div></div>
+      <div class="row"><span class="lbl">Fraction of 1/6</span><span class="val" id="frac">36.4%</span></div>
+      <div class="row" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">
+        <span class="lbl">Total &thinsp; Vol = 1/3!</span>
+        <span class="val val-grn">= 1/6</span>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hd">Why 1/3!</div>
+      <div class="fml">
+        Vol(Δ₃) =<br>
+        &nbsp; ∫₀¹ <span class="r">A(t)</span> dt<br>
+        &nbsp; = ∫₀¹ <span class="r">(1–t)²/2</span> dt<br>
+        &nbsp; = ½·[–(1–t)³/3]₀¹<br>
+        &nbsp; = <span class="g">1/6 = 1/3!</span> &nbsp;✓
+      </div>
+    </div>
+
+    <div class="sec" style="flex:1">
+      <div class="sec-hd">Legend</div>
+      <div class="leg"><div class="dot" style="background:rgba(26,82,118,.55);border:1px solid #1f6090"></div>Coord faces (xᵢ = 0)</div>
+      <div class="leg"><div class="dot" style="background:rgba(30,110,67,.55);border:1px solid #1e6e43"></div>Hypotenuse (Σxᵢ = 1)</div>
+      <div class="leg"><div class="dot" style="background:#d65454"></div>Slice at x₃ = t</div>
+      <div class="leg"><div class="dot" style="background:rgba(80,140,200,.28)"></div>Stacked sections</div>
+    </div>
+
+  </div><!-- /panel -->
+</div><!-- /main -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ── scene setup ────────────────────────────────────────────────────────────
+  const wrap = document.getElementById('cvs');
+
+  function getWH() {
+    return { w: wrap.clientWidth || 640, h: wrap.clientHeight || 480 };
+  }
+  let { w: W, h: H } = getWH();
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(W, H);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setClearColor(0x111d2a);
+  wrap.appendChild(renderer.domElement);
+
+  const scene  = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(48, W / H, 0.01, 100);
+  camera.position.set(2.4, 1.75, 2.4);
+  camera.lookAt(0.25, 0.28, 0.25);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.80));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.50);
+  sun.position.set(2.5, 4, 3);
+  scene.add(sun);
+
+  // rotating group — everything lives inside this
+  const pivot = new THREE.Group();
+  pivot.rotation.y =  0.55;
+  pivot.rotation.x = -0.20;
+  scene.add(pivot);
+
+  // ── helpers ────────────────────────────────────────────────────────────────
+  function makeFaceGeo(a, b, c) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(
+      new Float32Array([...a.toArray(), ...b.toArray(), ...c.toArray()]), 3));
+    g.computeVertexNormals();
+    return g;
+  }
+
+  function faceMat(color, opacity) {
+    return new THREE.MeshPhongMaterial({
+      color, transparent: true, opacity,
+      side: THREE.DoubleSide, depthWrite: false, shininess: 20,
+    });
+  }
+
+  // ── tetrahedron vertices ───────────────────────────────────────────────────
+  // Coordinate mapping: (x₁, x₂, x₃) → Three.js (x₁, x₃, x₂)
+  // so that x₃ is the vertical ("up") axis
+  const O = new THREE.Vector3(0, 0, 0);  // origin
+  const A = new THREE.Vector3(1, 0, 0);  // x₁ axis
+  const B = new THREE.Vector3(0, 0, 1);  // x₂ axis → Three.js z
+  const C = new THREE.Vector3(0, 1, 0);  // x₃ axis → Three.js y (up)
+
+  // ── faces ──────────────────────────────────────────────────────────────────
+  [
+    [O, A, B, 0x1a5276, 0.17],   // x₃ = 0  (floor)
+    [O, A, C, 0x1a5276, 0.17],   // x₂ = 0  (front wall)
+    [O, B, C, 0x1a5276, 0.17],   // x₁ = 0  (left wall)
+    [A, B, C, 0x1e6e43, 0.23],   // x₁+x₂+x₃ = 1  (hypotenuse face, green)
+  ].forEach(([v1, v2, v3, col, op]) => {
+    pivot.add(new THREE.Mesh(makeFaceGeo(v1, v2, v3), faceMat(col, op)));
+  });
+
+  // ── edges ──────────────────────────────────────────────────────────────────
+  [[O,A],[O,B],[O,C],[A,B],[A,C],[B,C]].forEach(([v1, v2]) => {
+    const g = new THREE.BufferGeometry().setFromPoints([v1, v2]);
+    pivot.add(new THREE.Line(g,
+      new THREE.LineBasicMaterial({ color: 0x2980b9, transparent: true, opacity: 0.80 })));
+  });
+
+  // ── coordinate axes with arrowheads ───────────────────────────────────────
+  [
+    [new THREE.Vector3(1.32, 0,    0   ), 0xd65454],   // x₁  red
+    [new THREE.Vector3(0,    1.32, 0   ), 0x5ec87a],   // x₃  green (up)
+    [new THREE.Vector3(0,    0,    1.32), 0x5aace0],   // x₂  blue
+  ].forEach(([ep, col]) => {
+    pivot.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), ep]),
+      new THREE.LineBasicMaterial({ color: col })));
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(0.021, 0.078, 8),
+      new THREE.MeshBasicMaterial({ color: col }));
+    cone.position.copy(ep);
+    cone.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), ep.clone().normalize());
+    pivot.add(cone);
+  });
+
+  // ── vertex spheres ─────────────────────────────────────────────────────────
+  [O, A, B, C].forEach(v => {
+    const s = new THREE.Mesh(
+      new THREE.SphereGeometry(0.026, 12, 12),
+      new THREE.MeshPhongMaterial({ color: 0xd8eaf4, emissive: 0x446677, emissiveIntensity: 0.35 }));
+    s.position.copy(v);
+    pivot.add(s);
+  });
+
+  // ── stacked cross-section triangles (Cavalieri stack) ────────────────────
+  const N_STACK = 22;
+  const stackMeshes = [];
+
+  for (let i = 0; i <= N_STACK; i++) {
+    const tt  = i / N_STACK;
+    const hue = 0.58 - 0.48 * tt;            // blue→orange gradient
+    const col = new THREE.Color().setHSL(hue, 0.75, 0.54);
+    const g   = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(
+      new Float32Array([0, tt, 0,  1-tt, tt, 0,  0, tt, 1-tt]), 3));
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+      color: col, transparent: true, opacity: 0.10,
+      side: THREE.DoubleSide, depthWrite: false,
+    }));
+    pivot.add(m);
+    stackMeshes.push(m);
+  }
+
+  // ── highlighted current slice ──────────────────────────────────────────────
+  const hiGeo = new THREE.BufferGeometry();
+  hiGeo.setAttribute('position',
+    new THREE.BufferAttribute(new Float32Array(9), 3));
+  pivot.add(new THREE.Mesh(hiGeo, new THREE.MeshBasicMaterial({
+    color: 0xe04040, transparent: true, opacity: 0.68,
+    side: THREE.DoubleSide, depthWrite: false,
+  })));
+
+  // outline of the highlighted slice
+  const outGeo = new THREE.BufferGeometry().setFromPoints([O, A, B]);
+  pivot.add(new THREE.LineLoop(outGeo,
+    new THREE.LineBasicMaterial({ color: 0xff7070, linewidth: 2 })));
+
+  // vertical guide lines from slice vertices down to the floor
+  const guideGeo = new THREE.BufferGeometry();
+  guideGeo.setAttribute('position',
+    new THREE.BufferAttribute(new Float32Array(18), 3));
+  pivot.add(new THREE.LineSegments(guideGeo,
+    new THREE.LineBasicMaterial({ color: 0xe04040, transparent: true, opacity: 0.25 })));
+
+  // ── slice update function ──────────────────────────────────────────────────
+  function updateSlice(t) {
+    const p1 = [0, t, 0],  p2 = [1-t, t, 0],  p3 = [0, t, 1-t];
+
+    hiGeo.setAttribute('position',
+      new THREE.BufferAttribute(new Float32Array([...p1,...p2,...p3]), 3));
+
+    outGeo.setFromPoints([
+      new THREE.Vector3(...p1),
+      new THREE.Vector3(...p2),
+      new THREE.Vector3(...p3),
+    ]);
+
+    // guide lines: each slice vertex down to floor (y=0)
+    guideGeo.setAttribute('position', new THREE.BufferAttribute(
+      new Float32Array([
+        0, 0, 0,       ...p1,
+        1-t, 0, 0,     ...p2,
+        0, 0, 1-t,     ...p3,
+      ]), 3));
+  }
+
+  updateSlice(0.35);
+
+  // ── panel stats update ─────────────────────────────────────────────────────
+  function updateStats(t) {
+    const s   = 1 - t;
+    const ar  = s * s / 2;
+    const vb  = (1 - Math.pow(s, 3)) / 6;
+    const fr  = 1 - Math.pow(s, 3);
+
+    document.getElementById('tval').textContent = t.toFixed(3);
+    document.getElementById('side').textContent = s.toFixed(4);
+    document.getElementById('area').textContent = ar.toFixed(4);
+    document.getElementById('volb').textContent = vb.toFixed(5);
+    document.getElementById('vbar').style.width = (fr * 100).toFixed(1) + '%';
+    document.getElementById('frac').textContent = (fr * 100).toFixed(1) + '%';
+  }
+
+  updateStats(0.35);
+
+  // ── label positions ────────────────────────────────────────────────────────
+  const vertLabels = {
+    lO: { v: new THREE.Vector3(0, 0, 0),    dx: '-50%', dy: '-130%' },
+    lA: { v: new THREE.Vector3(1, 0, 0),    dx: '-50%', dy: '-130%' },
+    lB: { v: new THREE.Vector3(0, 0, 1),    dx: '-50%', dy: '-130%' },
+    lC: { v: new THREE.Vector3(0, 1, 0),    dx: '-50%', dy: '-130%' },
+  };
+  const axisLabels = {
+    ax1: new THREE.Vector3(1.44, 0,    0   ),
+    ax2: new THREE.Vector3(0,    0,    1.44),
+    ax3: new THREE.Vector3(0,    1.44, 0   ),
+  };
+
+  function projectLabel(id, worldPos) {
+    const el  = document.getElementById(id);
+    if (!el) return;
+    const wp  = worldPos.clone().applyMatrix4(pivot.matrixWorld);
+    const ndc = wp.clone().project(camera);
+    if (ndc.z < 1 && ndc.z > -1) {
+      const r  = wrap.getBoundingClientRect();
+      const px = ((ndc.x + 1) / 2) * r.width;
+      const py = ((1 - ndc.y) / 2) * r.height;
+      el.style.left    = px + 'px';
+      el.style.top     = py + 'px';
+      el.style.display = 'block';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
+  function updateLabels() {
+    Object.entries(vertLabels).forEach(([id, d]) => {
+      const el = document.getElementById(id);
+      if (el) el.style.transform = `translate(${d.dx},${d.dy})`;
+      projectLabel(id, d.v);
+    });
+    Object.entries(axisLabels).forEach(([id, v]) => {
+      const el = document.getElementById(id);
+      if (el) el.style.transform = 'translate(-50%,-50%)';
+      projectLabel(id, v);
+    });
+  }
+
+  // ── mouse / touch rotation ─────────────────────────────────────────────────
+  let isDrag = false, lx = 0, ly = 0;
+
+  wrap.addEventListener('mousedown', e => { isDrag = true;  lx = e.clientX; ly = e.clientY; });
+  window.addEventListener('mousemove', e => {
+    if (!isDrag) return;
+    pivot.rotation.y += (e.clientX - lx) * 0.008;
+    pivot.rotation.x += (e.clientY - ly) * 0.008;
+    pivot.rotation.x  = Math.max(-1.2, Math.min(1.2, pivot.rotation.x));
+    lx = e.clientX;  ly = e.clientY;
+  });
+  window.addEventListener('mouseup', () => isDrag = false);
+
+  wrap.addEventListener('touchstart', e => {
+    isDrag = true;
+    lx = e.touches[0].clientX;
+    ly = e.touches[0].clientY;
+  }, { passive: true });
+  wrap.addEventListener('touchmove', e => {
+    if (!isDrag) return;
+    pivot.rotation.y += (e.touches[0].clientX - lx) * 0.008;
+    pivot.rotation.x += (e.touches[0].clientY - ly) * 0.008;
+    pivot.rotation.x  = Math.max(-1.2, Math.min(1.2, pivot.rotation.x));
+    lx = e.touches[0].clientX;
+    ly = e.touches[0].clientY;
+  }, { passive: true });
+  wrap.addEventListener('touchend', () => isDrag = false);
+
+  // scroll to zoom
+  wrap.addEventListener('wheel', e => {
+    camera.position.multiplyScalar(1 + e.deltaY * 0.001);
+    e.preventDefault();
+  }, { passive: false });
+
+  // ── slider ─────────────────────────────────────────────────────────────────
+  document.getElementById('tsl').addEventListener('input', function () {
+    const t = +this.value;
+    updateSlice(t);
+    updateStats(t);
+  });
+
+  // ── toggle buttons ─────────────────────────────────────────────────────────
+  let stackOn = true, spinOn = true;
+
+  document.getElementById('bStack').addEventListener('click', function () {
+    stackOn = !stackOn;
+    stackMeshes.forEach(m => { m.visible = stackOn; });
+    this.textContent = (stackOn ? '\u25A0' : '\u25A1') + ' Stack';
+    this.classList.toggle('on', stackOn);
+  });
+
+  document.getElementById('bSpin').addEventListener('click', function () {
+    spinOn = !spinOn;
+    this.textContent = (spinOn ? '\u25B6' : '\u23F8') + ' Spin';
+    this.classList.toggle('on', spinOn);
+  });
+
+  // ── window resize ──────────────────────────────────────────────────────────
+  window.addEventListener('resize', () => {
+    const { w, h } = getWH();
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  });
+
+  // ── render loop ────────────────────────────────────────────────────────────
+  (function loop() {
+    requestAnimationFrame(loop);
+    if (spinOn && !isDrag) pivot.rotation.y += 0.004;
+    pivot.updateMatrixWorld();
+    updateLabels();
+    renderer.render(scene, camera);
+  })();
+
+})();
+</script>
+</body>
+</html>
