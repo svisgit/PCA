@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Randomness Workshop</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #f8fafc;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            touch-action: manipulation;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+        .progress {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 1rem;
+        }
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        button {
+            padding: 1.5rem;
+            font-size: 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            background: var(--primary);
+            color: white;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+        .hidden { display: none; }
+        #status { margin-top: 1rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="app">
+    <h2>Input Bits</h2>
+    <div class="progress" id="counter">Collected: 0 / 50</div>
+    
+    <div class="btn-group">
+        <button onclick="addBit(0)">0</button>
+        <button onclick="addBit(1)">1</button>
+    </div>
+
+    <div id="status"></div>
+</div>
+
+<script>
+    // --- CONFIGURATION ---
+    const N = 50; // Number of bits to collect
+    const ENTRY_ID = "entry.773847830";
+    // ---------------------
+
+    let bits = "";
+    let count = 0;
+
+    function addBit(val) {
+        if (count < N) {
+            bits += val;
+            count++;
+            document.getElementById('counter').innerText = `Collected: ${count} / ${N}`;
+            
+            if (count === N) {
+                submitData();
+            }
+        }
+    }
+
+    function submitData() {
+        const statusDiv = document.getElementById('status');
+        statusDiv.innerText = "Submitting...";
+        
+        // Google Forms doesn't support CORS for direct AJAX posts easily,
+        // so we use a hidden iframe or a simple 'no-cors' fetch request.
+        const formUrl = `https://docs.google.com/forms/u/0/d/e/1FAIpQLSeakEeZlirse5sTji5iGF8hotAieVy1hZysF8aausei3MDN2Q/formResponse`;
+        
+        const formData = new FormData();
+        formData.append(ENTRY_ID, bits);
+
+        fetch(formUrl, {
+            method: 'POST',
+            mode: 'no-cors', // Critical: Google won't send a 'Success' header back
+            body: formData
+        }).then(() => {
+            statusDiv.innerHTML = "✅ Data Sent!<br>Thank you.";
+            document.querySelector('.btn-group').classList.add('hidden');
+        }).catch(err => {
+            statusDiv.innerText = "❌ Error sending data.";
+            console.error(err);
+        });
+    }
+</script>
+
+</body>
+</html>
